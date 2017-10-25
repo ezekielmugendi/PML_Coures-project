@@ -1,0 +1,84 @@
+---
+title: "PML Course Project"
+author: "Ezekiel"
+date: "October 25, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## download data
+```{r, }
+if(!file.exists("pml-training.csv")){download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = "pml-training.csv")}
+
+if(!file.exists("pml-testing.csv")){download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "pml-testing.csv")}
+```
+
+## Load the necessary packages that will be used
+```{r, }
+library(caret, warn.conflicts = FALSE, quietly = TRUE )
+
+## read data into r and replace missing values with NAs
+train_data <- read.csv("pml-training.csv", na.strings = c("", "NA"))
+test_data <- read.csv("pml-testing.csv", na.strings = c("", "NA"))
+dim(train_data); dim(test_data)
+str(train_data)
+```
+
+## Remove columns with NAs
+```{r, }
+train_data <- train_data[, (colSums(is.na(train_data))==0)]
+dim(train_data)
+test_data <- test_data[, (colSums(is.na(test_data))==0)]
+dim(test_data)
+str(train_data)
+```
+
+## Delete columns 1 to 8 because they are not relevant as predictors. 
+```{r, }
+train_data <- train_data[, -c(1:8)]
+dim(train_data)
+test_data <- test_data[, -c(1:8)]
+dim(test_data)
+```
+
+### Data processing
+## split the data into training and testing data
+
+```{r, }
+inTrain <- createDataPartition(y=train_data$classe, p=0.7, list = FALSE)
+train <- train_data[inTrain,]
+test <- train_data[-inTrain,]
+dim(train); dim(test)
+```
+
+## remove zero covariates
+```{r, }
+nsv <- nearZeroVar(train, saveMetrics = TRUE)
+nsv
+```
+
+### There are no variables to drop(All FALSE)
+
+## Fitting model by Predicting outcomes using random forest method.
+### I used the crossvalidation method to detect relevant features for building the correct model
+```{r, }
+set.seed(123)
+modfit <- train(classe~.,method="rf",trControl=trainControl(method = "cv", number = 3), data=train)
+modfit
+```
+
+### Predict new values using the test data.  This is also the expected out of sample error 
+```{r, }
+pre_test <- predict(modfit, test)
+confusionMatrix(test$classe, pre_test)
+## the accuracy for the expected out of sample error is 99.27%
+```
+
+### Predicting new values(20 test cases) using the prediction model developed.
+```{r, }
+pred_final <- predict(modfit, newdata=test_data)
+pred_final
+```
